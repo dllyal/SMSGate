@@ -38,14 +38,14 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
-            <version>4.1.29.Final</version>
+            <version>4.1.42.Final</version>
         </dependency>
 
         <!-- guava 缓存 -->
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>23.5-jre</version>
+            <version>24.1.1-jre</version>
         </dependency>
 
         <dependency>
