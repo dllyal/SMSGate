@@ -18,6 +18,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -301,6 +303,71 @@ public class NettyClient implements CommandLineRunner {
         return false;
     }
 
+    /** 
+      * 为长短信获取短信内容 增加TP_udhi协议头  
+      * 1.系统设置为发送短短信时直接获取短信实体的短信内容。TP_udhi=0 
+      * 2.系统设置为发送长短信时按照长短信协议分段在每段前增加udhiHead。TP_udhi=1 
+      * 3.系统采用7个字节的TP_udhi协议头（2字节短信标志，2的32次方内的随机数，但也有可能产生相同标志） 
+      * @author Aaron 
+      */
+    public ArrayList<byte[]> getUCS2MsgContents(byte[] messageUCS2,int maxMessageLen){
+  
+        ArrayList<byte[]> ucs2msgList = new ArrayList<byte[]>();
+        //短信字节数
+        int messageUCS2Len = messageUCS2.length;
+        //标准短信最大字节数
+        //maxMessageLen = 140;
+        //短信分段数
+        int messageUCS2Count;
+  
+        //长短信
+        messageUCS2Count = messageUCS2Len / (maxMessageLen - 7) + 1;
+        byte[] tp_udhiHead = new byte[7];
+        //为了随机填充第4、5个字段
+        Random random = new Random();
+        random.nextBytes(tp_udhiHead);
+        //表示剩余协议头的长度
+        tp_udhiHead[0] = 0x06;
+        //这个值在GSM03.40规范9.2.3.24.1中规定，表示随后的这批超长短信的标识位长度为2
+        tp_udhiHead[1] = 0x08;
+        //表示剩余协议头的长度
+        tp_udhiHead[2] = 0x04;
+        //3、4同一批短信的标志，初始化时已赋随机值
+        //tp_udhiHead[3]
+        //tp_udhiHead[4]
+        //内容
+        tp_udhiHead[5] = (byte) messageUCS2Count;
+        //第几条，默认为第一条
+        tp_udhiHead[6] = 0x01;
+        //分割后的每条短信
+        byte[] msgContent;
+        //划段拆分
+        for (int i = 0; i < messageUCS2Count; i++) {
+            //设置分段标志，第几条
+            tp_udhiHead[6] = (byte) (i + 1);
+            if (i != messageUCS2Count - 1) {
+                //不为最后一条
+                msgContent = byteAdd(tp_udhiHead, messageUCS2, i * (maxMessageLen - 7), (i + 1) * (maxMessageLen - 7));
+                ucs2msgList.add(msgContent);
+            } else {
+                msgContent = byteAdd(tp_udhiHead, messageUCS2, i * (maxMessageLen - 7), messageUCS2Len);
+                ucs2msgList.add(msgContent);
+            }
+        }
+        return ucs2msgList;
+    }
+
+    /** 
+      * 拼接头尾 
+      * @author Aaron
+      */  
+    private static byte[] byteAdd(byte[] tpUdhiHead, byte[] messageUCS2, int i, int j) {
+        byte[] msgb = new byte[j - i + 7];
+        System.arraycopy(tpUdhiHead, 0, msgb, 0, 7);
+        System.arraycopy(messageUCS2, i, msgb, 7, j - i);
+        return msgb;
+    }  
+
     /**
      * 发送消息
      * @param sequence
@@ -337,53 +404,35 @@ public class NettyClient implements CommandLineRunner {
             //UCS2编码编码后的长度
             int messageUCS2Len = smsContentUCS2.length;
             //长短信长度
-            int maxMessageLen = 126;
+            int maxMessageLen = 140;
             //超过长短信长度
             if (messageUCS2Len > maxMessageLen) {
+                //拆分长短信
+                ArrayList<byte[]> ucs2msgList = getUCS2MsgContents(smsContentUCS2,maxMessageLen);
                 //长短信发送
                 int tpUdhi = 1;
                 //msgFmt编码8 表示UCS2编码
                 int msgFmt = 0x08;
                 //长短信分为多少条发送
-                int messageUCS2Count = messageUCS2Len / (maxMessageLen - 6) + 1;
-                //长短信内容前6个字节 为协议头编码
-                byte[] tp_udhiHead = new byte[6];
-                tp_udhiHead[0] = 0x05;
-                tp_udhiHead[1] = 0x00;
-                tp_udhiHead[2] = 0x03;
-                tp_udhiHead[3] = 0x0A;
-                tp_udhiHead[4] = (byte) messageUCS2Count;
-                tp_udhiHead[5] = 0x01;
-                //默认为第一条 开始循环发送
+                int messageUCS2Count = ucs2msgList.size();
+                logger.info("长短信拆分条数：" + messageUCS2Count);
+                // 逐条发送
                 for (int i = 0; i < messageUCS2Count; i++) {
-                    //第几条
-                    tp_udhiHead[5] = (byte) (i + 1);
-                    //定义短信内容
-                    byte[] msgContent;
-                    //分割当前这条的内容
-                    if (i != messageUCS2Count - 1) {
-                        //不为最后一条
-                        msgContent = CmppUtils.byteAddLongMsg(tp_udhiHead, smsContentUCS2, i * (maxMessageLen - 6), (i + 1) * (maxMessageLen - 6));
-                    } else {
-                        msgContent = CmppUtils.byteAddLongMsg(tp_udhiHead, smsContentUCS2, i * (maxMessageLen - 6), messageUCS2Len);
-                    }
-                    System.out.println("正在发送第" + tp_udhiHead[5] + "条长短信");
-                    System.out.println("UCS2:" + CmppUtils.bytesToHexStr(msgContent));
-                    System.out.println("总长度：" + msgContent.length);
                     //补充充短信请求信息
-                    cmppSubmit.setTotal_Length(12 + 8 + 1 + 1 + 1 + 1 + 10 + 1 + 32 + 1 + 1 + 1 + 1 + 6 + 2 + 6 + 17 + 17 + 21 + 1 + 32 + 1 + 1 + msgContent.length + 20);
-                    cmppSubmit.setPkTotal(tp_udhiHead[4]);
-                    cmppSubmit.setPkNumber(tp_udhiHead[5]);
+                    cmppSubmit.setTotal_Length(12 + 8 + 1 + 1 + 1 + 1 + 10 + 1 + 32 + 1 + 1 + 1 + 1 + 6 + 2 + 6 + 17 + 17 + 21 + 1 + 32 + 1 + 1 + ucs2msgList.get(i).length + 20);
+                    cmppSubmit.setPkTotal((byte) messageUCS2Count);
+                    cmppSubmit.setPkNumber((byte) (i + 1));
                     cmppSubmit.setTpUdhi((byte) tpUdhi);
                     cmppSubmit.setMsgFmt((byte) msgFmt);
-                    cmppSubmit.setMsgLength((byte) msgContent.length);
-                    cmppSubmit.setMsgContent(msgContent);
+                    cmppSubmit.setMsgLength((byte) ucs2msgList.get(i).length);
+                    cmppSubmit.setMsgContent(ucs2msgList.get(i));
                     //读取流水号
                     String msgNo = CmppUtils.bytesToHexString(CmppUtils.getMsgBytes(cmppSubmit.toByteArray(),8,12));
                     recMsgMap.put(msgNo,cmppSubmit.toByteArray());
                     //向通道写入并推送
                     channel.writeAndFlush(cmppSubmit);
                     logger.info("NettyClient sendMsg " + Thread.currentThread().getName());
+
                 }
             }else {
                 //补充充短信请求信息
