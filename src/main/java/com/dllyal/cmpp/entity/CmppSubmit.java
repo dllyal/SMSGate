@@ -7,6 +7,8 @@ import com.dllyal.cmpp.utils.CmppUtils;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author
@@ -39,8 +41,9 @@ public class CmppSubmit extends CmppMessageHeader {
     // SP的服务代码或前缀为服务代码的长号码,
     // 网关将该号码完整的填到SMPP协议Submit_SM消息相应的source_addr字段，该号码最终在用户手机上显示为短消息的主叫号码。
     private String srcId;
-    private byte destUsrTl = 0x01;// 不支持群发
-    private String destTerminalId;// 接收手机号码，
+    //private byte destUsrTl = 0x01;// 群发
+    private int destUsrTl = 1;
+    private List<String> destTerminalId;// 接收手机号码，
     private byte destTerminalType = 0x00;// 真实号码
     private byte msgLength;
     private byte[] msgContent; // 信息内容
@@ -84,8 +87,10 @@ public class CmppSubmit extends CmppMessageHeader {
             CmppDefine.writeString(dous, this.valIdTime, 17);// 存活有效期
             CmppDefine.writeString(dous, this.atTime, 17);// 定时发送时间
             CmppDefine.writeString(dous, this.srcId, 21);// Src_Id spCode
-            dous.writeByte(this.destUsrTl);// DestUsr_tl
-            CmppDefine.writeString(dous, this.destTerminalId, 32);// Dest_terminal_Id
+            dous.writeByte(CmppUtils.intToByte(this.destUsrTl));// DestUsr_tl
+            for (String theDestTerminalId : this.destTerminalId){
+                CmppDefine.writeString(dous, theDestTerminalId, 32);// Dest_terminal_Id
+            }
             dous.writeByte(this.destTerminalType);// Dest_terminal_type
             // 接收短信的用户的号码类型，0：真实号码；1：伪码
             dous.writeByte(this.msgLength);// Msg_Length
@@ -244,20 +249,31 @@ public class CmppSubmit extends CmppMessageHeader {
         this.srcId = srcId;
     }
 
-    public byte getDestUsrTl() {
+    public int getDestUsrTl() {
         return destUsrTl;
     }
 
-    public void setDestUsrTl(byte destUsrTl) {
+    public void setDestUsrTl(int destUsrTl) {
         this.destUsrTl = destUsrTl;
     }
 
-    public String getDestTerminalId() {
+    public List<String> getDestTerminalId() {
         return destTerminalId;
     }
 
-    public void setDestTerminalId(String destTerminalId) {
+    /*public void setDestTerminalId(String destTerminalId) {
         this.destTerminalId = destTerminalId;
+    }*/
+
+    public void setDestTerminalId(List<String> destterminalId) {
+        this.destTerminalId = destterminalId;
+        this.destUsrTl = destterminalId.size();
+    }
+
+    public void setDestTerminalId(String destterminalId) {
+        this.destTerminalId = new ArrayList<>();
+        destTerminalId.add(destterminalId);
+        this.destUsrTl = 1;
     }
 
     public byte getDestTerminalType() {

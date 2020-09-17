@@ -1,6 +1,7 @@
 package com.dllyal.cmpp;
 
 import com.dllyal.util.SyncFuture;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.dllyal.cmpp.utils.CmppConfig;
@@ -19,6 +20,8 @@ import org.springframework.stereotype.Component;
 
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -383,6 +386,8 @@ public class NettyClient implements CommandLineRunner {
         boolean result = false;
         //通道活动
         if (isActive()){
+            //待发送号码集合
+            List<String> allReceiveNumList = Arrays.asList(StringUtils.split(receiveNum, ","));
             //短信提交对象
             CmppSubmit cmppSubmit = new CmppSubmit(CmppDefine.CMPP_SUBMIT, Command.CMPP3_VERSION);
             cmppSubmit.setCommand_Id(CmppDefine.CMPP_SUBMIT);
@@ -395,7 +400,7 @@ public class NettyClient implements CommandLineRunner {
             cmppSubmit.setTpPId((byte) 0x00);
             cmppSubmit.setMsgSrc(CmppConfig.BusinessCode);
             cmppSubmit.setSrcId(CmppConfig.ServiceCode + freeCode);
-            cmppSubmit.setDestTerminalId(receiveNum);
+            cmppSubmit.setDestTerminalId(allReceiveNumList);
             cmppSubmit.setServiceId(CmppConfig.CompanyCode);
             //短信内容UCS2编码
             byte[] smsContentUCS2;
