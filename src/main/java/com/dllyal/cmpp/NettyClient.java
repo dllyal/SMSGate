@@ -388,7 +388,12 @@ public class NettyClient implements CommandLineRunner {
         if (isActive()){
             //待发送号码集合
             List<String> allReceiveNumList = Arrays.asList(StringUtils.split(receiveNum, ","));
-            for (String theReceiveNum : allReceiveNumList){
+            String theReceiveNum = "";
+            for (int index = 0; index < allReceiveNumList.size(); index++){
+                if (index != 0){
+                    sequence = CmppUtils.getSequence();
+                }
+                theReceiveNum = allReceiveNumList.get(index);
                 //短信提交对象
                 CmppSubmit cmppSubmit = new CmppSubmit(CmppDefine.CMPP_SUBMIT, Command.CMPP3_VERSION);
                 cmppSubmit.setCommand_Id(CmppDefine.CMPP_SUBMIT);
