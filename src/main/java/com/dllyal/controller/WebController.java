@@ -5,8 +5,6 @@ import com.dllyal.cmpp.entity.CmppConnectResp;
 import com.dllyal.cmpp.entity.CmppSubmitResp;
 import com.dllyal.cmpp.utils.CmppUtils;
 import com.dllyal.service.NettyClientService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +14,6 @@ import java.util.*;
 
 
 @RestController
-@Api(tags = "API接口")
 public class WebController {
 
     Logger logger = LoggerFactory.getLogger(WebController.class);
@@ -28,7 +25,6 @@ public class WebController {
         this.nettyClientService = nettyClientService;
     }
 
-    @ApiOperation(value = "启动CMPP连接", notes = "启动CMPP连接（程序默认启动，一般不用操作）")
     @PostMapping(value = {"/service/start"}, produces = {"application/json;charset=UTF-8"})
     public Map start() {
         logger.info("********start cmpp*********");
@@ -46,7 +42,6 @@ public class WebController {
         return result;
     }
 
-    @ApiOperation(value = "启动CMPP连接-同步", notes = "启动CMPP连接-同步返回结果（程序默认启动，一般不用操作）")
     @PostMapping(value = {"/service/startSync"}, produces = {"application/json;charset=UTF-8"})
     public Map startSync() {
         logger.info("********startSync cmpp*********");
@@ -70,7 +65,6 @@ public class WebController {
         return result;
     }
 
-    @ApiOperation(value = "断开CMPP连接", notes = "断开CMPP连接")
     @PostMapping(value = {"/service/shutdown"}, produces = {"application/json;charset=UTF-8"})
     public Map shutdown() {
         logger.info("********shutdown cmpp*********");
@@ -93,7 +87,6 @@ public class WebController {
         return result;
     }
 
-    @ApiOperation(value = "发送短信", notes = "提交后不会同步返回提交结果")
     @PostMapping(value = {"/service/sendMsg"}, produces = {"application/json;charset=UTF-8"})
     public Map sendMsg(@RequestBody Map map) {
         logger.info("********cmpp sendMsg*********");
@@ -123,11 +116,16 @@ public class WebController {
         return result;
     }
 
-    @ApiOperation(value = "发送短信-同步", notes = "同步返回提交结果")
     @PostMapping(value = {"/service/sendSyncMsg"}, produces = {"application/json;charset=UTF-8"})
     public Map sendSyncMsg(@RequestBody Map map) {
         logger.info("********cmpp sendSyncMsg*********");
         logger.info(map.toString());
+        /*
+        {
+            "receiveNum": "12345678901,12345678912",
+            "smsContent": "aaa"
+        }
+         */
         String smsContent = (String) map.get("smsContent");
         String receiveNum = (String) map.get("receiveNum");
 

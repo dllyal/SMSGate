@@ -1,14 +1,12 @@
 package com.dllyal.cmpp.entity;
 
+import com.dllyal.cmpp.utils.CmppUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.dllyal.cmpp.utils.CmppUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * @author
@@ -43,7 +41,7 @@ public class CmppSubmit extends CmppMessageHeader {
     private String srcId;
     //private byte destUsrTl = 0x01;// 群发
     private int destUsrTl = 1;
-    private List<String> destTerminalId;// 接收手机号码，
+    private String destTerminalId;// 接收手机号码，
     private byte destTerminalType = 0x00;// 真实号码
     private byte msgLength;
     private byte[] msgContent; // 信息内容
@@ -87,10 +85,13 @@ public class CmppSubmit extends CmppMessageHeader {
             CmppDefine.writeString(dous, this.valIdTime, 17);// 存活有效期
             CmppDefine.writeString(dous, this.atTime, 17);// 定时发送时间
             CmppDefine.writeString(dous, this.srcId, 21);// Src_Id spCode
-            dous.writeByte(CmppUtils.intToByte(this.destUsrTl));// DestUsr_tl
-            for (String theDestTerminalId : this.destTerminalId){
+            //dous.writeByte(CmppUtils.intToByte(this.destUsrTl));// DestUsr_tl
+            dous.writeByte((byte) this.destUsrTl);// DestUsr_tl
+            /*List<String> allReceiveNumList = Arrays.asList(StringUtils.split(this.destTerminalId, ","));
+            for (String theDestTerminalId : allReceiveNumList){
                 CmppDefine.writeString(dous, theDestTerminalId, 32);// Dest_terminal_Id
-            }
+            }*/
+            CmppDefine.writeString(dous, this.destTerminalId, 32 * this.destUsrTl);// Dest_terminal_Id
             dous.writeByte(this.destTerminalType);// Dest_terminal_type
             // 接收短信的用户的号码类型，0：真实号码；1：伪码
             dous.writeByte(this.msgLength);// Msg_Length
@@ -257,7 +258,7 @@ public class CmppSubmit extends CmppMessageHeader {
         this.destUsrTl = destUsrTl;
     }
 
-    public List<String> getDestTerminalId() {
+    public String getDestTerminalId() {
         return destTerminalId;
     }
 
@@ -265,16 +266,16 @@ public class CmppSubmit extends CmppMessageHeader {
         this.destTerminalId = destTerminalId;
     }*/
 
-    public void setDestTerminalId(List<String> destterminalId) {
+    public void setDestTerminalId(String destterminalId) {
         this.destTerminalId = destterminalId;
-        this.destUsrTl = destterminalId.size();
+        //this.destUsrTl = destterminalId.size();
     }
 
-    public void setDestTerminalId(String destterminalId) {
+    /*public void setDestTerminalId(String destterminalId) {
         this.destTerminalId = new ArrayList<>();
         destTerminalId.add(destterminalId);
         this.destUsrTl = 1;
-    }
+    }*/
 
     public byte getDestTerminalType() {
         return destTerminalType;

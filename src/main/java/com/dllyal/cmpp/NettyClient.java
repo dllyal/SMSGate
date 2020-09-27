@@ -388,72 +388,75 @@ public class NettyClient implements CommandLineRunner {
         if (isActive()){
             //待发送号码集合
             List<String> allReceiveNumList = Arrays.asList(StringUtils.split(receiveNum, ","));
-            //短信提交对象
-            CmppSubmit cmppSubmit = new CmppSubmit(CmppDefine.CMPP_SUBMIT, Command.CMPP3_VERSION);
-            cmppSubmit.setCommand_Id(CmppDefine.CMPP_SUBMIT);
-            cmppSubmit.setSequence_Id(sequence);
-            cmppSubmit.setRegisteredDelivery((byte) 0x01);
-            cmppSubmit.setMsgLevel((byte) 0x01);
-            cmppSubmit.setFeeUserType((byte) 0x02);
-            cmppSubmit.setFeeTerminalId(CmppConfig.ServiceCode);
-            cmppSubmit.setFeeTerminalType((byte) 0x00);
-            cmppSubmit.setTpPId((byte) 0x00);
-            cmppSubmit.setMsgSrc(CmppConfig.BusinessCode);
-            cmppSubmit.setSrcId(CmppConfig.ServiceCode + freeCode);
-            cmppSubmit.setDestTerminalId(allReceiveNumList);
-            cmppSubmit.setServiceId(CmppConfig.CompanyCode);
-            //短信内容UCS2编码
-            byte[] smsContentUCS2;
-            smsContentUCS2 = smsContent.getBytes("UnicodeBigUnmarked");
-            //System.out.println(smsContent + " -(UCS2)编码: " + CmppUtils.bytesToHexStr(smsContentUCS2));
-            //UCS2编码编码后的长度
-            int messageUCS2Len = smsContentUCS2.length;
-            //长短信长度
-            int maxMessageLen = 140;
-            //超过长短信长度
-            if (messageUCS2Len > maxMessageLen) {
-                //拆分长短信
-                ArrayList<byte[]> ucs2msgList = getUCS2MsgContents(smsContentUCS2,maxMessageLen);
-                //长短信发送
-                int tpUdhi = 1;
-                //msgFmt编码8 表示UCS2编码
-                int msgFmt = 0x08;
-                //长短信分为多少条发送
-                int messageUCS2Count = ucs2msgList.size();
-                logger.info("长短信拆分条数：" + messageUCS2Count);
-                // 逐条发送
-                for (int i = 0; i < messageUCS2Count; i++) {
+            for (String theReceiveNum : allReceiveNumList){
+                //短信提交对象
+                CmppSubmit cmppSubmit = new CmppSubmit(CmppDefine.CMPP_SUBMIT, Command.CMPP3_VERSION);
+                cmppSubmit.setCommand_Id(CmppDefine.CMPP_SUBMIT);
+                cmppSubmit.setSequence_Id(sequence);
+                cmppSubmit.setRegisteredDelivery((byte) 0x01);
+                cmppSubmit.setMsgLevel((byte) 0x01);
+                cmppSubmit.setFeeUserType((byte) 0x02);
+                cmppSubmit.setFeeTerminalId(CmppConfig.ServiceCode);
+                cmppSubmit.setFeeTerminalType((byte) 0x00);
+                cmppSubmit.setTpPId((byte) 0x00);
+                cmppSubmit.setMsgSrc(CmppConfig.BusinessCode);
+                cmppSubmit.setSrcId(CmppConfig.ServiceCode + freeCode);
+                cmppSubmit.setDestUsrTl(1);
+                cmppSubmit.setDestTerminalId(theReceiveNum);
+                cmppSubmit.setServiceId(CmppConfig.CompanyCode);
+                //短信内容UCS2编码
+                byte[] smsContentUCS2;
+                smsContentUCS2 = smsContent.getBytes("UnicodeBigUnmarked");
+                //System.out.println(smsContent + " -(UCS2)编码: " + CmppUtils.bytesToHexStr(smsContentUCS2));
+                //UCS2编码编码后的长度
+                int messageUCS2Len = smsContentUCS2.length;
+                //长短信长度
+                int maxMessageLen = 140;
+                //超过长短信长度
+                if (messageUCS2Len > maxMessageLen) {
+                    //拆分长短信
+                    ArrayList<byte[]> ucs2msgList = getUCS2MsgContents(smsContentUCS2,maxMessageLen);
+                    //长短信发送
+                    int tpUdhi = 1;
+                    //msgFmt编码8 表示UCS2编码
+                    int msgFmt = 0x08;
+                    //长短信分为多少条发送
+                    int messageUCS2Count = ucs2msgList.size();
+                    logger.info("长短信拆分条数：" + messageUCS2Count);
+                    // 逐条发送
+                    for (int i = 0; i < messageUCS2Count; i++) {
+                        //补充充短信请求信息
+                        cmppSubmit.setTotal_Length(12 + 8 + 1 + 1 + 1 + 1 + 10 + 1 + 32 + 1 + 1 + 1 + 1 + 6 + 2 + 6 + 17 + 17 + 21 + 1 + 32 + 1 + 1 + ucs2msgList.get(i).length + 20);
+                        cmppSubmit.setPkTotal((byte) messageUCS2Count);
+                        cmppSubmit.setPkNumber((byte) (i + 1));
+                        cmppSubmit.setTpUdhi((byte) tpUdhi);
+                        cmppSubmit.setMsgFmt((byte) msgFmt);
+                        cmppSubmit.setMsgLength((byte) ucs2msgList.get(i).length);
+                        cmppSubmit.setMsgContent(ucs2msgList.get(i));
+                        //读取流水号
+                        String msgNo = CmppUtils.bytesToHexString(CmppUtils.getMsgBytes(cmppSubmit.toByteArray(),8,12));
+                        recMsgMap.put(msgNo,cmppSubmit.toByteArray());
+                        //向通道写入并推送
+                        channel.writeAndFlush(cmppSubmit);
+                        logger.info("NettyClient sendMsg " + Thread.currentThread().getName());
+
+                    }
+                }else {
                     //补充充短信请求信息
-                    cmppSubmit.setTotal_Length(12 + 8 + 1 + 1 + 1 + 1 + 10 + 1 + 32 + 1 + 1 + 1 + 1 + 6 + 2 + 6 + 17 + 17 + 21 + 1 + 32 + 1 + 1 + ucs2msgList.get(i).length + 20);
-                    cmppSubmit.setPkTotal((byte) messageUCS2Count);
-                    cmppSubmit.setPkNumber((byte) (i + 1));
-                    cmppSubmit.setTpUdhi((byte) tpUdhi);
-                    cmppSubmit.setMsgFmt((byte) msgFmt);
-                    cmppSubmit.setMsgLength((byte) ucs2msgList.get(i).length);
-                    cmppSubmit.setMsgContent(ucs2msgList.get(i));
+                    cmppSubmit.setTotal_Length(12 + 8 + 1 + 1 + 1 + 1 + 10 + 1 + 32 + 1 + 1 + 1 + 1 + 6 + 2 + 6 + 17 + 17 + 21 + 1 + 32 + 1 + 1 + smsContent.length() * 2 + 20);
+                    cmppSubmit.setPkTotal((byte) 0x01);
+                    cmppSubmit.setPkNumber((byte) 0x01);
+                    cmppSubmit.setTpUdhi((byte) 0x00);
+                    cmppSubmit.setMsgFmt((byte) 0x0F);
+                    cmppSubmit.setMsgLength(CmppUtils.intToByte(smsContent.length() * 2));
+                    cmppSubmit.setMsgContent(smsContent.getBytes("gb2312"));
                     //读取流水号
                     String msgNo = CmppUtils.bytesToHexString(CmppUtils.getMsgBytes(cmppSubmit.toByteArray(),8,12));
                     recMsgMap.put(msgNo,cmppSubmit.toByteArray());
                     //向通道写入并推送
                     channel.writeAndFlush(cmppSubmit);
                     logger.info("NettyClient sendMsg " + Thread.currentThread().getName());
-
                 }
-            }else {
-                //补充充短信请求信息
-                cmppSubmit.setTotal_Length(12 + 8 + 1 + 1 + 1 + 1 + 10 + 1 + 32 + 1 + 1 + 1 + 1 + 6 + 2 + 6 + 17 + 17 + 21 + 1 + 32 + 1 + 1 + smsContent.length() * 2 + 20);
-                cmppSubmit.setPkTotal((byte) 0x01);
-                cmppSubmit.setPkNumber((byte) 0x01);
-                cmppSubmit.setTpUdhi((byte) 0x00);
-                cmppSubmit.setMsgFmt((byte) 0x0F);
-                cmppSubmit.setMsgLength(CmppUtils.intToByte(smsContent.length() * 2));
-                cmppSubmit.setMsgContent(smsContent.getBytes("gb2312"));
-                //读取流水号
-                String msgNo = CmppUtils.bytesToHexString(CmppUtils.getMsgBytes(cmppSubmit.toByteArray(),8,12));
-                recMsgMap.put(msgNo,cmppSubmit.toByteArray());
-                //向通道写入并推送
-                channel.writeAndFlush(cmppSubmit);
-                logger.info("NettyClient sendMsg " + Thread.currentThread().getName());
             }
             result = true;
         }

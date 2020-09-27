@@ -1,7 +1,7 @@
 decode_charset: UTF-8
 
 server:
-  port: 8080
+  port: 8090
 
 spring:
   http:
@@ -10,16 +10,6 @@ spring:
       force: true
       enabled: true
 
-swagger:
-  title: API标题
-  description: API描述
-  version: 1.0
-  terms-of-service-url: http://www.javastack.cn/
-  base-package: cn.javastack.test.web
-  contact:
-    name: Javastack
-    url: http://www.javastack.cn/
-    email: admin@javastack.cn
 
 CMPP:
   ServerIp: "127.0.0.1"
